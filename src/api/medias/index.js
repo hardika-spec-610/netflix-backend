@@ -21,4 +21,19 @@ mediaRouter.post("/", async (req, res, next) => {
   await writeMedias(mediaArray);
   res.status(201).send({ id: newMediaPost.imdbID });
 });
+
+mediaRouter.get("/", async (req, res, next) => {
+  try {
+    const medias = await getMedia();
+    if (req.query && req.query.title) {
+      const filteredMedia = medias.filter((m) => m.title === req.query.title);
+      res.send(filteredMedia);
+    } else {
+      res.send(medias);
+    }
+  } catch (error) {
+    next(createHttpError(500, `Server side error`));
+  }
+});
+
 export default mediaRouter;
