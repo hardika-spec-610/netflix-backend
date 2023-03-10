@@ -73,8 +73,56 @@ const mediaUpdateSchema = {
     },
   },
 };
+
+const reviewSchema = {
+  comment: {
+    in: ["body"],
+    notEmpty: true,
+    isString: {
+      errorMessage: "comment must be String",
+    },
+  },
+  rate: {
+    in: ["body"],
+    notEmpty: true,
+    isFloat: {
+      options: { max: 5 },
+    },
+    isIn: {
+      options: [[0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]],
+      errorMessage: "Rating must be in the range of 0 to 5",
+    },
+  },
+};
+const reviewUpdateSchema = {
+  comment: {
+    in: ["body"],
+    optional: true,
+    trim: true,
+    notEmpty: true,
+    isString: {
+      errorMessage: "comment must be String",
+    },
+  },
+  rate: {
+    in: ["body"],
+    optional: true,
+    trim: true,
+    notEmpty: true,
+    isFloat: {
+      options: { max: 5 },
+    },
+    isIn: {
+      options: [[0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]],
+      errorMessage: "Rating must be in the range of 0 to 5",
+    },
+  },
+};
+
 export const checkMediaSchema = checkSchema(mediaSchema);
 export const checkmediaUpdateSchema = checkSchema(mediaUpdateSchema);
+export const checkReviewSchema = checkSchema(reviewSchema);
+export const checkReviewUpdateSchema = checkSchema(reviewUpdateSchema);
 
 export const triggerBadRequest = (req, res, next) => {
   // 1. Check if checkBooksSchema has found any error in req.body

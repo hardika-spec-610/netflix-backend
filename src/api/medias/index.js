@@ -1,7 +1,12 @@
 import Express from "express"; // 3RD PARTY MODULE (npm i express)
 import uniqid from "uniqid";
 import createHttpError from "http-errors";
-import { getMedia, writeMedias } from "../../lib/fs-tools.js";
+import {
+  getMedia,
+  getReviews,
+  writeMedias,
+  writeReviews,
+} from "../../lib/fs-tools.js";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
@@ -9,6 +14,8 @@ import { getPDFReadableStream } from "../../lib/pdf-tools.js";
 import { pipeline } from "stream";
 import {
   checkMediaSchema,
+  checkReviewSchema,
+  checkReviewUpdateSchema,
   checkmediaUpdateSchema,
   triggerBadRequest,
 } from "./validation.js";
@@ -168,6 +175,165 @@ mediaRouter.get("/:id/pdf", async (req, res, next) => {
     }
   } catch (error) {
     next(error);
+  }
+});
+
+mediaRouter.post(
+  "/:id/reviews",
+  checkReviewSchema,
+  triggerBadRequest,
+  async (req, res, next) => {
+    try {
+      const medias = await getMedia();
+      const index = medias.findIndex((m) => m.imdbID === req.params.id);
+      if (index !== -1) {
+        const { comment, rate } = req.body;
+        const newReview = {
+          comment,
+          rate,
+          elementId: req.params.id,
+          _id: uniqid(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        const reviews = await getReviews();
+        reviews.push(newReview);
+        await writeReviews(reviews);
+        res.status(201).send(reviews);
+      } else {
+        next(createHttpError(404, `no review found with id ${req.params.id}`));
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+mediaRouter.get("/:id/reviews", async (req, res, next) => {
+  try {
+    const medias = await getMedia();
+    const index = medias.findIndex((m) => m.imdbID === req.params.id);
+    // console.log("reviewGetindex", index);
+    if (index !== -1) {
+      const reviews = (await getReviews()).filter(
+        (r) => r.elementId === req.params.id
+      );
+      console.log("reviewGet", reviews);
+      res.send(reviews);
+    } else {
+      next(createHttpError(404, `no review found with id ${req.params.id}`));
+    }
+  } catch (error) {
+    next(createHttpError(500, `Server side error`));
+  }
+});
+
+mediaRouter.get("/:id/reviews/:reviewId", async (req, res, next) => {
+  try {
+    const medias = await getMedia();
+    const index = medias.findIndex((m) => m.imdbID === req.params.id);
+    // console.log("reviewGetindex", index);
+    if (index !== -1) {
+      const reviews = (await getReviews()).filter(
+        (r) => r.elementId === req.params.id
+      );
+      //   console.log("reviewGet", reviews);
+      const foundReview = reviews.find(
+        (review) => review._id === req.params.reviewId
+      );
+      if (foundReview) {
+        res.send(foundReview);
+      } else {
+        next(
+          createHttpError(
+            404,
+            `Review not found with id ${req.params.reviewId} of this product with id ${req.params.id}`
+          )
+        );
+      }
+    } else {
+      next(createHttpError(404, `Media not found with id ${req.params.id}`));
+    }
+  } catch (error) {
+    next(createHttpError(500, `Server side error`));
+  }
+});
+
+mediaRouter.put(
+  "/:id/reviews/:reviewId",
+  checkReviewUpdateSchema,
+  triggerBadRequest,
+  async (req, res, next) => {
+    try {
+      const medias = await getMedia();
+      const index = medias.findIndex((m) => m.imdbID === req.params.id);
+      // console.log("reviewGetindex", index);
+      if (index !== -1) {
+        const reviews = await getReviews();
+        // find review index?
+        const reviewIndex = reviews.findIndex(
+          (review) => review._id === req.params.reviewId
+        );
+        if (reviewIndex !== -1) {
+          // console.log("reviewGetindex", reviewIndex);
+          const updated = {
+            ...reviews[reviewIndex],
+            ...req.body,
+            updatedAt: new Date(),
+          };
+          reviews[reviewIndex] = updated;
+          await writeReviews(reviews);
+          res.send(updated);
+        } else {
+          next(
+            createHttpError(
+              404,
+              `Review not found with id ${req.params.reviewId}`
+            )
+          );
+        }
+      } else {
+        next(
+          createHttpError(404, `Product not found with id ${req.params.id}`)
+        );
+      }
+    } catch (error) {
+      next(createHttpError(500, `Server side error`));
+    }
+  }
+);
+
+mediaRouter.delete("/:id/reviews/:reviewId", async (req, res, next) => {
+  try {
+    const medias = await getMedia();
+    const index = medias.findIndex((m) => m.imdbID === req.params.id);
+    // console.log("reviewGetindex", index);
+    if (index !== -1) {
+      const reviews = await getReviews();
+      // find review index?
+      const reviewIndex = reviews.findIndex(
+        (review) => review._id === req.params.reviewId
+      );
+      if (reviewIndex !== -1) {
+        // console.log("reviewGetindex", reviewIndex);
+        const remainingReview = reviews.filter(
+          (review) => review._id !== req.params.reviewId
+        );
+        await writeReviews(remainingReview);
+        res.status(204).send("review deleted");
+      } else {
+        next(
+          createHttpError(
+            404,
+            `Review not found with id ${req.params.reviewId}`
+          )
+        );
+      }
+    } else {
+      next(createHttpError(404, `Media not found with id ${req.params.id}`));
+    }
+  } catch (error) {
+    next(createHttpError(500, `Server side error`));
   }
 });
 
