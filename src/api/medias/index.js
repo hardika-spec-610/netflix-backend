@@ -5,6 +5,8 @@ import { getMedia, writeMedias } from "../../lib/fs-tools.js";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
+import { getPDFReadableStream } from "../../lib/pdf-tools.js";
+import { pipeline } from "stream";
 
 const mediaRouter = Express.Router();
 
@@ -105,26 +107,49 @@ mediaRouter.post(
       console.log("FILE:", req.file);
       const medias = await getMedia();
       const index = medias.findIndex((m) => m.imdbID === req.params.id);
-      if (index === -1) {
+      if (index !== -1) {
+        const oldMedia = medias[index];
+        const updatedMedia = {
+          ...oldMedia,
+          ...req.body,
+          Poster: req.file.path,
+          updatedAt: new Date(),
+        };
+        medias[index] = updatedMedia;
+        await writeMedias(medias);
+        res.send(updatedMedia);
+      } else {
         res
           .status(404)
           .send({ message: `Media with ${req.params.id} is not found!` });
-        return;
       }
-      const oldMedia = medias[index];
-      const updatedMedia = {
-        ...oldMedia,
-        ...req.body,
-        cover: req.file.path,
-        updatedAt: new Date(),
-      };
-      medias[index] = updatedMedia;
-      await writeMedias(medias);
-      res.send({ message: "file uploaded" });
     } catch (error) {
       next(error);
     }
   }
 );
+
+mediaRouter.get("/:id/pdf", async (req, res, next) => {
+  try {
+    const medias = await getMedia();
+    const foundMedia = medias.find((m) => m.imdbID === req.params.id);
+    if (foundMedia) {
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=${foundMedia.Title}.pdf`
+      );
+      const source = await getPDFReadableStream(foundMedia);
+      const destination = res;
+      pipeline(source, destination, (err) => {
+        if (err) console.log(err);
+        source.end();
+      });
+    } else {
+      res.status(404).send("Media is not found");
+    }
+  } catch (error) {
+    next(error);
+  }
+});
 
 export default mediaRouter;
