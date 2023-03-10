@@ -2,16 +2,19 @@ import Express from "express"; // 3RD PARTY MODULE (npm i express)
 import uniqid from "uniqid";
 import createHttpError from "http-errors";
 import { getMedia, writeMedias } from "../../lib/fs-tools.js";
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 
 const mediaRouter = Express.Router();
 
 mediaRouter.post("/", async (req, res, next) => {
-  const { title, year, type, poster } = req.body;
+  const { Title, Year, Type, Poster } = req.body;
   const newMediaPost = {
-    title,
-    year,
-    type,
-    poster,
+    Title,
+    Year,
+    Type,
+    Poster,
     imdbID: uniqid(),
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -26,7 +29,7 @@ mediaRouter.get("/", async (req, res, next) => {
   try {
     const medias = await getMedia();
     if (req.query && req.query.title) {
-      const filteredMedia = medias.filter((m) => m.title === req.query.title);
+      const filteredMedia = medias.filter((m) => m.Title === req.query.title);
       res.send(filteredMedia);
     } else {
       res.send(medias);
@@ -84,5 +87,44 @@ mediaRouter.delete("/:id", async (req, res, next) => {
     next(error);
   }
 });
+
+const cloudinaryUploaderPoster = multer({
+  storage: new CloudinaryStorage({
+    cloudinary, // cloudinary is going to search for smth in .env vars called process.env.CLOUDINARY_URL
+    params: {
+      folder: "Netflix movie poster/medias",
+    },
+  }),
+}).single("Poster");
+
+mediaRouter.post(
+  "/:id/poster",
+  cloudinaryUploaderPoster,
+  async (req, res, next) => {
+    try {
+      console.log("FILE:", req.file);
+      const medias = await getMedia();
+      const index = medias.findIndex((m) => m.imdbID === req.params.id);
+      if (index === -1) {
+        res
+          .status(404)
+          .send({ message: `Media with ${req.params.id} is not found!` });
+        return;
+      }
+      const oldMedia = medias[index];
+      const updatedMedia = {
+        ...oldMedia,
+        ...req.body,
+        cover: req.file.path,
+        updatedAt: new Date(),
+      };
+      medias[index] = updatedMedia;
+      await writeMedias(medias);
+      res.send({ message: "file uploaded" });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 export default mediaRouter;
