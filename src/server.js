@@ -9,6 +9,7 @@ import {
   notfoundHandler,
 } from "./errorsHandlers.js";
 import createHttpError from "http-errors";
+import mediaRouter from "./api/medias/index.js";
 
 const server = Express();
 const port = process.env.PORT || 3001;
@@ -54,6 +55,8 @@ server.listen(port, () => {
   console.table(listEndpoints(server));
   console.log(`Server is running on port ${port}`);
 });
+
+server.use("/medias", mediaRouter);
 
 // ************************* ERROR HANDLERS *******************
 server.use(badRequestHandler); // 400
