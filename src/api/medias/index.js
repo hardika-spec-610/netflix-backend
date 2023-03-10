@@ -7,25 +7,35 @@ import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { getPDFReadableStream } from "../../lib/pdf-tools.js";
 import { pipeline } from "stream";
+import {
+  checkMediaSchema,
+  checkmediaUpdateSchema,
+  triggerBadRequest,
+} from "./validation.js";
 
 const mediaRouter = Express.Router();
 
-mediaRouter.post("/", async (req, res, next) => {
-  const { Title, Year, Type, Poster } = req.body;
-  const newMediaPost = {
-    Title,
-    Year,
-    Type,
-    Poster,
-    imdbID: uniqid(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-  const mediaArray = await getMedia();
-  mediaArray.push(newMediaPost);
-  await writeMedias(mediaArray);
-  res.status(201).send({ id: newMediaPost.imdbID });
-});
+mediaRouter.post(
+  "/",
+  checkMediaSchema,
+  triggerBadRequest,
+  async (req, res, next) => {
+    const { Title, Year, Type, Poster } = req.body;
+    const newMediaPost = {
+      Title,
+      Year,
+      Type,
+      Poster,
+      imdbID: uniqid(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const mediaArray = await getMedia();
+    mediaArray.push(newMediaPost);
+    await writeMedias(mediaArray);
+    res.status(201).send({ id: newMediaPost.imdbID });
+  }
+);
 
 mediaRouter.get("/", async (req, res, next) => {
   try {
@@ -55,24 +65,33 @@ mediaRouter.get("/:id", async (req, res, next) => {
   }
 });
 
-mediaRouter.put("/:id", async (req, res, next) => {
-  try {
-    const medias = await getMedia();
+mediaRouter.put(
+  "/:id",
+  checkmediaUpdateSchema,
+  triggerBadRequest,
+  async (req, res, next) => {
+    try {
+      const medias = await getMedia();
 
-    const index = medias.findIndex((m) => m.imdbID === req.params.id);
-    if (index !== -1) {
-      const oldMedia = medias[index];
-      const updatedMedia = { ...oldMedia, ...req.body, updatedAt: new Date() };
-      medias[index] = updatedMedia;
-      await writeMedias(medias);
-      res.send(updatedMedia);
-    } else {
-      next(createHttpError(404, `Media with id ${req.params.id} not found!`));
+      const index = medias.findIndex((m) => m.imdbID === req.params.id);
+      if (index !== -1) {
+        const oldMedia = medias[index];
+        const updatedMedia = {
+          ...oldMedia,
+          ...req.body,
+          updatedAt: new Date(),
+        };
+        medias[index] = updatedMedia;
+        await writeMedias(medias);
+        res.send(updatedMedia);
+      } else {
+        next(createHttpError(404, `Media with id ${req.params.id} not found!`));
+      }
+    } catch (error) {
+      next(error);
     }
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 mediaRouter.delete("/:id", async (req, res, next) => {
   try {
