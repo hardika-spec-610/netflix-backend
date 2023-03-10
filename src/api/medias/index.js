@@ -36,4 +36,18 @@ mediaRouter.get("/", async (req, res, next) => {
   }
 });
 
+mediaRouter.get("/:id", async (req, res, next) => {
+  try {
+    const medias = await getMedia();
+    const foundMedia = medias.find((m) => m.imdbID === req.params.id);
+    if (foundMedia) {
+      res.send(foundMedia);
+    } else {
+      next(createHttpError(404, `Media with id ${req.params.id} not found!`)); // this jumps to the error handlers
+    }
+  } catch (error) {
+    next(error); // This error does not have a status code, it should trigger a 500
+  }
+});
+
 export default mediaRouter;
