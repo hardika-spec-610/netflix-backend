@@ -69,4 +69,20 @@ mediaRouter.put("/:id", async (req, res, next) => {
   }
 });
 
+mediaRouter.delete("/:id", async (req, res, next) => {
+  try {
+    const medias = await getMedia();
+
+    const remainingMedia = medias.filter((m) => m.imdbID !== req.params.id);
+    if (medias.length !== remainingMedia.length) {
+      await writeMedias(remainingMedia);
+      res.status(204).send(`Media with id ${req.params.id} deleted!`);
+    } else {
+      next(createHttpError(404, `Media with id ${req.params.id} not found!`)); //
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default mediaRouter;
