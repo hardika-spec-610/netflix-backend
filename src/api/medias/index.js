@@ -50,4 +50,23 @@ mediaRouter.get("/:id", async (req, res, next) => {
   }
 });
 
+mediaRouter.put("/:id", async (req, res, next) => {
+  try {
+    const medias = await getMedia();
+
+    const index = medias.findIndex((m) => m.imdbID === req.params.id);
+    if (index !== -1) {
+      const oldMedia = medias[index];
+      const updatedMedia = { ...oldMedia, ...req.body, updatedAt: new Date() };
+      medias[index] = updatedMedia;
+      await writeMedias(medias);
+      res.send(updatedMedia);
+    } else {
+      next(createHttpError(404, `Media with id ${req.params.id} not found!`));
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default mediaRouter;
